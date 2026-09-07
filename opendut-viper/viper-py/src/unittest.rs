@@ -6,6 +6,7 @@ pub mod unittest {
     use rustpython_vm::function::OptionalArg;
     use rustpython_vm::{pyclass, AsObject, PyObjectRef, PyPayload, PyResult, VirtualMachine};
     use std::ops::Not;
+    use rustpython_vm::function::OptionalArg::Present;
 
     #[pyattr]
     #[pyclass(name)]
@@ -30,10 +31,13 @@ pub mod unittest {
 
             Self::ensure_comparable(&is_equals, &message, vm)?;
 
+            let a_value = a.repr(vm)?.to_string();
+            let b_value = b.repr(vm)?.to_string();
+
             if is_equals.is_true(vm)? {
                 Ok(())
             } else {
-                let error_message = message.unwrap_or_else(||String::from("ASSERTION FAILED: The Objects are not equal"));
+                let error_message = format!("ASSERTION FAILED: {a_value} != {b_value}{}", Self::format_message(message));
                 Err(vm.new_runtime_error(error_message))
             }
         }
@@ -48,14 +52,17 @@ pub mod unittest {
             #[viper(default = "")] message: OptionalArg<String>,
             #[viper(skip)] vm: &VirtualMachine
         ) -> PyResult<()> {
-            let is_equals = vm.call_method(&a, "__eq__", vec![b])?;
+            let is_equals = vm.call_method(&a, "__eq__", vec![b.clone()])?;
 
             Self::ensure_comparable(&is_equals, &message, vm)?;
+
+            let a_value = a.repr(vm)?.to_string();
+            let b_value = b.repr(vm)?.to_string();
 
             if is_equals.is_true(vm)?.not() {
                 Ok(())
             } else {
-                let error_message = message.unwrap_or_else(|| String::from("ASSERTION FAILED: Equal objects"));
+                let error_message = format!("ASSERTION FAILED: {a_value} == {b_value}{}", Self::format_message(message));
                 Err(vm.new_runtime_error(error_message))
             }
         }
@@ -69,7 +76,7 @@ pub mod unittest {
             #[viper(default = "")] message: OptionalArg<String>,
             #[viper(skip)] vm: &VirtualMachine
         ) -> PyResult<()> {
-            let error_message = message.unwrap_or_else(|| String::from("ASSERTION FAILED: The expression is false"));
+            let error_message = format!("ASSERTION FAILED: {expression} is not true{}", Self::format_message(message));
 
             if expression {
                 Ok(())
@@ -87,7 +94,8 @@ pub mod unittest {
             #[viper(default = "")] message: OptionalArg<String>,
             #[viper(skip)] vm: &VirtualMachine
         ) -> PyResult<()> {
-            let error_message = message.unwrap_or_else(|| String::from("ASSERTION FAILED: The expression is true"));
+
+            let error_message = format!("ASSERTION FAILED: {expression} is not false{}", Self::format_message(message));
 
             if expression.not() {
                 Ok(())
@@ -106,7 +114,10 @@ pub mod unittest {
             #[viper(default = "")] message: OptionalArg<String>,
             #[viper(skip)] vm: &VirtualMachine
         ) -> PyResult<()> {
-            let error_message = message.unwrap_or_else(|| String::from("ASSERTION FAILED: Different objects"));
+            let a_value = a.repr(vm)?.to_string();
+            let b_value = b.repr(vm)?.to_string();
+
+            let error_message = format!("ASSERTION FAILED: {a_value} is not {b_value}{}", Self::format_message(message));
 
             if a.is(&b) {
                 Ok(())
@@ -125,7 +136,8 @@ pub mod unittest {
             #[viper(default = "")] message: OptionalArg<String>,
             #[viper(skip)] vm: &VirtualMachine
         ) -> PyResult<()> {
-            let error_message = message.unwrap_or_else(|| String::from("ASSERTION FAILED: Different objects"));
+            let a_value = a.repr(vm)?.to_string();
+            let error_message = format!("ASSERTION FAILED: Unexpectedly identical: {a_value}{}",Self::format_message(message));
 
             if a.is(&b).not() {
                 Ok(())
@@ -143,7 +155,9 @@ pub mod unittest {
             #[viper(default = "")] message: OptionalArg<String>,
             #[viper(skip)] vm: &VirtualMachine
         ) -> PyResult<()> {
-            let error_message = message.unwrap_or_else(|| String::from("ASSERTION FAILED: Object is not none"));
+            let object_value = object.repr(vm)?.to_string();
+
+            let error_message = format!("ASSERTION FAILED: {object_value} is not None{}", Self::format_message(message));
 
             if vm.is_none(&object) {
                 Ok(())
@@ -161,7 +175,7 @@ pub mod unittest {
             #[viper(default = "")] message: OptionalArg<String>,
             #[viper(skip)] vm: &VirtualMachine
         ) -> PyResult<()> {
-            let error_message = message.unwrap_or_else(|| String::from("ASSERTION FAILED: The objects is none"));
+            let error_message = format!("ASSERTION FAILED: Unexpectedly None{}", Self::format_message(message));
 
             if vm.is_none(&object).not() {
                 Ok(())
@@ -180,8 +194,12 @@ pub mod unittest {
             #[viper(default = "")] message: OptionalArg<String>,
             #[viper(skip)] vm: &VirtualMachine
         ) -> PyResult<()> {
-            let result = vm.call_method(&container, "__contains__", vec![element])?;
-            let error_message = message.unwrap_or_else(|| String::from("ASSERTION FAILED: Element is not in the container"));
+            let result = vm.call_method(&container, "__contains__", vec![element.clone()])?;
+
+            let element_value = element.repr(vm)?.to_string();
+            let container_value = container.repr(vm)?.to_string();
+
+            let error_message = format!("ASSERTION FAILED: {element_value} not found in {container_value}{}", Self::format_message(message));
 
             if result.is_true(vm)? {
                 Ok(())
@@ -200,8 +218,13 @@ pub mod unittest {
             #[viper(default = "")] message: OptionalArg<String>,
             #[viper(skip)] vm: &VirtualMachine
         ) -> PyResult<()> {
-            let result = vm.call_method(&container, "__contains__", vec![element])?;
-            let error_message = message.unwrap_or_else(|| String::from("ASSERTION FAILED: Element is in the container"));
+            let result = vm.call_method(&container, "__contains__", vec![element.clone()])?;
+
+            let element_value = element.repr(vm)?.to_string();
+            let container_value = container.repr(vm)?.to_string();
+
+
+            let error_message = format!("ASSERTION FAILED: {element_value} unexpectedly found in {container_value}{}", Self::format_message(message));
 
             if result.is_true(vm)?.not() {
                 Ok(())
@@ -221,7 +244,9 @@ pub mod unittest {
             #[viper(skip)] vm: &VirtualMachine
         ) -> PyResult<()> {
             let is_instance = object.is_instance(&cls, vm)?;
-            let error_message = message.unwrap_or_else(|| String::from("ASSERTION FAILED: Object is not an instance"));
+            let object_value = object.repr(vm)?.to_string();
+            let cls_value = cls.repr(vm)?.to_string();
+            let error_message = format!("ASSERTION FAILED: {object_value} is not an instance of {cls_value}{}", Self::format_message(message));
 
             if is_instance {
                 Ok(())
@@ -241,7 +266,9 @@ pub mod unittest {
             #[viper(skip)] vm: &VirtualMachine
         ) -> PyResult<()> {
             let is_instance = object.is_instance(&cls, vm)?;
-            let error_message = message.unwrap_or_else(|| String::from("ASSERTION FAILED: Object is an instance"));
+            let object_value = object.repr(vm)?.to_string();
+            let cls_value = cls.repr(vm)?.to_string();
+            let error_message = format!("ASSERTION FAILED: {object_value} is an instance of {cls_value}{}", Self::format_message(message));
 
             if is_instance.not() {
                 Ok(())
@@ -260,14 +287,17 @@ pub mod unittest {
             #[viper(default = "")] message: OptionalArg<String>,
             #[viper(skip)] vm: &VirtualMachine
         ) -> PyResult<()> {
-            let result = vm.call_method(&left, "__gt__", vec![right])?;
+            let result = vm.call_method(&left, "__gt__", vec![right.clone()])?;
 
             Self::ensure_comparable(&result, &message, vm)?;
+
+            let left_value = left.repr(vm)?.to_string();
+            let right_value = right.repr(vm)?.to_string();
 
             if result.is_true(vm)? {
                 Ok(())
             } else {
-                let error_message = message.unwrap_or_else(|| String::from("ASSERTION FAILED: The left object is less than the right one"));
+                let error_message = format!("ASSERTION FAILED: {left_value} not greater than {right_value}{}", Self::format_message(message));
                 Err(vm.new_runtime_error(error_message))
             }
         }
@@ -282,14 +312,17 @@ pub mod unittest {
             #[viper(default = "")] message: OptionalArg<String>,
             #[viper(skip)] vm: &VirtualMachine
         ) -> PyResult<()> {
-            let result = vm.call_method(&left, "__lt__", vec![right])?;
+            let result = vm.call_method(&left, "__lt__", vec![right.clone()])?;
 
             Self::ensure_comparable(&result, &message, vm)?;
+
+            let left_value = left.repr(vm)?.to_string();
+            let right_value = right.repr(vm)?.to_string();
 
             if result.is_true(vm)? {
                 Ok(())
             } else {
-                let error_message = message.unwrap_or_else(|| String::from("ASSERTION FAILED: The left object is greater than the right one"));
+                let error_message = format!("ASSERTION FAILED: {left_value} not less than {right_value}{}", Self::format_message(message));
                 Err(vm.new_runtime_error(error_message))
             }
         }
@@ -304,14 +337,17 @@ pub mod unittest {
             #[viper(default = "")] message: OptionalArg<String>,
             #[viper(skip)] vm: &VirtualMachine
         ) -> PyResult<()> {
-            let result = vm.call_method(&left, "__ge__", vec![right])?;
+            let result = vm.call_method(&left, "__ge__", vec![right.clone()])?;
 
             Self::ensure_comparable(&result, &message, vm)?;
+
+            let left_value = left.repr(vm)?.to_string();
+            let right_value = right.repr(vm)?.to_string();
 
             if result.is_true(vm)? {
                 Ok(())
             } else {
-                let error_message = message.unwrap_or_else(|| String::from("ASSERTION FAILED: The left object is less than the right one"));
+                let error_message = format!("ASSERTION FAILED: {left_value} not greater than or equal to {right_value}{}", Self::format_message(message));
                 Err(vm.new_runtime_error(error_message))
             }
         }
@@ -326,14 +362,17 @@ pub mod unittest {
             #[viper(default = "")] message: OptionalArg<String>,
             #[viper(skip)] vm: &VirtualMachine
         ) -> PyResult<()> {
-            let result = vm.call_method(&left, "__le__", vec![right])?;
+            let result = vm.call_method(&left, "__le__", vec![right.clone()])?;
 
             Self::ensure_comparable(&result, &message, vm)?;
+
+            let left_value = left.repr(vm)?.to_string();
+            let right_value = right.repr(vm)?.to_string();
 
             if result.is_true(vm)? {
                 Ok(())
             } else {
-                let error_message = message.unwrap_or_else(|| String::from("ASSERTION FAILED: The left object is greater than the right one"));
+                let error_message = format!("ASSERTION FAILED: {left_value} not less than or equal to {right_value}{}", Self::format_message(message));
                 Err(vm.new_runtime_error(error_message))
             }
         }
@@ -345,7 +384,7 @@ pub mod unittest {
             #[viper(default = "")] message: OptionalArg<String>,
             #[viper(skip)] vm: &VirtualMachine
         ) -> PyResult<()> {
-            let message = message.unwrap_or_else(|| String::from("Test Failed!"));
+            let message = message.unwrap_or_default();
             Err(vm.new_runtime_error(message))
         }
 
@@ -359,12 +398,21 @@ pub mod unittest {
                 let error_message = message
                     .as_ref()
                     .cloned()
-                    .unwrap_or_else(|| String::from("ASSERTION FAILED: The objects are not comparable"));
+                    .unwrap_or_else(|| String::from("ASSERTION FAILED: Objects are not comparable"));
 
                 Err(vm.new_runtime_error(error_message))
             } else {
                 Ok(())
             }
+        }
+
+        fn format_message(message: OptionalArg<String>) -> String {
+            if let Present(message) = message {
+                format!(": {}", message)
+            } else {
+                String::new()
+            }
+
         }
     }
 }
