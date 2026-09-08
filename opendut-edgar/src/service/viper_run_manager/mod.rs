@@ -4,7 +4,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
-use tracing::warn;
+use tracing::{debug, error, warn};
 use opendut_model::viper::{TestRunSourceCode, ViperRunId, ViperTestParameters};
 use opendut_viper_rt::ViperRuntime;
 use opendut_viper_rt::compile::{CompilationError, IdentifierFilter};
@@ -41,6 +41,7 @@ impl ViperRunManager {
                 let source = Source::embedded(source_code.inner.code);
 
                 let compilation = viper_runtime.compile(&source, &mut emitter::drain(), &IdentifierFilter::default()).await
+                    .inspect_err(|error| error!("Error when compiling VIPER test run <{run_id}>: {error}"))
                     .map_err(StartTestRunError::Compilation)?;
 
                 let (_, parameter_descriptors, suite) = compilation.split();
@@ -59,7 +60,10 @@ impl ViperRunManager {
                     .map_err(StartTestRunError::IncompleteParameterBindings)?;
 
                 let report = viper_runtime.run(suite, completed_bindings, &mut emitter::drain()).await
+                    .inspect_err(|error| error!("Error when running VIPER test run <{run_id}>: {error}"))
                     .map_err(StartTestRunError::Run)?;
+
+                debug!("Completed VIPER test run <{run_id}>. Test Suite Report: {report:#?}");
 
                 Ok(report)
             })
